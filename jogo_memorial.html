@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Memória Ortográfico</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            margin-top: 20px;
+        }
+        .game-board {
+            display: none;
+            grid-template-columns: repeat(2, 200px);
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .card {
+            width: 200px;
+            height: 250px;
+            background-color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            border: 2px solid #333;
+            border-radius: 10px;
+            flex-direction: column;
+            padding: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .card img {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        .card button {
+            margin: 5px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            transition: background-color 0.3s;
+        }
+        .card button:hover {
+            background-color: #0056b3;
+        }
+        .card button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .feedback {
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .ranking {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        .buttons {
+            margin-top: 20px;
+        }
+        .buttons button {
+            padding: 10px 20px;
+            font-size: 18px;
+            margin: 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #28a745;
+            color: white;
+            transition: background-color 0.3s;
+        }
+        .buttons button:hover {
+            background-color: #218838;
+        }
+        .buttons button#viewRanking {
+            background-color: #17a2b8;
+        }
+        .buttons button#viewRanking:hover {
+            background-color: #138496;
+        }
+    </style>
+</head>
+<body>
+    <h1>Jogo da Memória Ortográfico</h1>
+    <p>Escolha a palavra correta para a imagem!</p>
+
+    <div class="buttons">
+        <button id="startGame">Iniciar Jogo</button>
+        <button id="viewRanking">Ver Ranking</button>
+    </div>
+
+    <div class="game-board" id="gameBoard"></div>
+    <div class="feedback" id="feedback"></div>
+    <div class="ranking" id="ranking"></div>
+
+    <script>
+        const allWords = [
+            { image: "Imagens/cachorro.png", correct: "Cachorro", incorrect: "Xachoro" },
+            { image: "Imagens/chave.png", correct: "Chave", incorrect: "Xave" },
+            { image: "Imagens/geladeira.png", correct: "Geladeira", incorrect: "Jeladeira" },
+            { image: "Imagens/escola.png", correct: "Escola", incorrect: "Iscola" },
+            { image: "Imagens/computador.png", correct: "Computador", incorrect: "Computador" },
+            { image: "Imagens/livro.png", correct: "Livro", incorrect: "Livro" },
+            { image: "Imagens/caneta.png", correct: "Caneta", incorrect: "Kaneta" },
+            { image: "Imagens/mesa.png", correct: "Mesa", incorrect: "Meza" },
+        ];
+
+        let currentPlayer = "";
+        let correctCount = 0;
+        let incorrectCount = 0;
+        let remainingWords = [];
+        let ranking = [];
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function selectRandomWords() {
+            const shuffledWords = shuffleArray([...allWords]);
+            return shuffledWords.slice(0, 4);
+        }
+
+        function createBoard() {
+            const board = document.getElementById("gameBoard");
+            board.innerHTML = "";
+            board.style.display = "grid"; 
+
+            remainingWords.forEach((item) => {
+                const cardContainer = document.createElement("div");
+                cardContainer.classList.add("card");
+
+                const img = document.createElement("img");
+                img.src = item.image;
+                img.alt = "Imagem da palavra";
+
+                const correctBtn = document.createElement("button");
+                correctBtn.textContent = item.correct;
+                correctBtn.addEventListener("click", () => checkAnswer(true, correctBtn, incorrectBtn, item));
+
+                const incorrectBtn = document.createElement("button");
+                incorrectBtn.textContent = item.incorrect;
+                incorrectBtn.addEventListener("click", () => checkAnswer(false, incorrectBtn, correctBtn, item));
+
+                cardContainer.appendChild(img);
+                cardContainer.appendChild(correctBtn);
+                cardContainer.appendChild(incorrectBtn);
+                board.appendChild(cardContainer);
+            });
+        }
+
+        function checkAnswer(isCorrect, selectedBtn, otherBtn, item) {
+            if (isCorrect) {
+                correctCount++;
+                selectedBtn.style.backgroundColor = "green";
+                otherBtn.style.backgroundColor = "red";
+            } else {
+                incorrectCount++;
+                selectedBtn.style.backgroundColor = "red";
+                otherBtn.style.backgroundColor = "green";
+            }
+
+            selectedBtn.disabled = true;
+            otherBtn.disabled = true;
+
+            remainingWords = remainingWords.filter(word => word !== item);
+            updateFeedback();
+
+            if (incorrectCount >= 3) {
+                endGame();
+            } else {
+                const newWord = getNewWord();
+                if (newWord) {
+                    remainingWords.push(newWord);
+                    createBoard();
+                }
+            }
+        }
+
+        function getNewWord() {
+            const availableWords = allWords.filter(word => !remainingWords.includes(word));
+            return availableWords.length > 0 ? availableWords[Math.floor(Math.random() * availableWords.length)] : null;
+        }
+
+        function updateFeedback() {
+            const feedback = document.getElementById("feedback");
+            feedback.textContent = `Jogador: ${currentPlayer} | Acertos: ${correctCount} | Erros: ${incorrectCount}`;
+        }
+
+        function endGame() {
+            alert(`Fim do jogo, ${currentPlayer}! Você acertou ${correctCount} palavras.`);
+            ranking.push({ name: currentPlayer, score: correctCount });
+            ranking.sort((a, b) => b.score - a.score);
+            displayRanking();
+            resetGame();
+        }
+
+        function displayRanking() {
+            const rankingDiv = document.getElementById("ranking");
+            rankingDiv.innerHTML = "<h2>Ranking</h2>";
+            ranking.forEach((player, index) => {
+                rankingDiv.innerHTML += `<p>${index + 1}. ${player.name}: ${player.score} pontos</p>`;
+            });
+        }
+
+        function resetGame() {
+            document.getElementById("gameBoard").style.display = "none";
+        }
+
+        function startGame() {
+            currentPlayer = prompt("Insira o nome do jogador:");
+            if (currentPlayer) {
+                correctCount = 0;
+                incorrectCount = 0;
+                remainingWords = selectRandomWords();
+                updateFeedback();
+                createBoard();
+            }
+        }
+
+        document.getElementById("startGame").addEventListener("click", startGame);
+        document.getElementById("viewRanking").addEventListener("click", displayRanking);
+    </script>
+</body>
+</html>
